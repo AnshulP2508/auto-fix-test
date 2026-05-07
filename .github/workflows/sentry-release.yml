@@ -1,0 +1,55 @@
+name: Sentry Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sentry-release:
+    runs-on: ubuntu-latest
+    env:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT_FRONTEND: ${{ vars.SENTRY_PROJECT_FRONTEND || '4511307826921472' }}
+      SENTRY_PROJECT_BACKEND: ${{ vars.SENTRY_PROJECT_BACKEND || '4511307836030976' }}
+      RELEASE: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Sentry CLI
+        run: npm install -g @sentry/cli
+
+      - name: Create release
+        run: |
+          sentry-cli releases new "$RELEASE"
+          sentry-cli releases set-commits "$RELEASE" --auto
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_APP_VERSION: ${{ github.sha }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT_FRONTEND: ${{ vars.SENTRY_PROJECT_FRONTEND || '4511307826921472' }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build backend
+        working-directory: backend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload backend sourcemaps
+        working-directory: backend
+        run: |
+          sentry-cli sourcemaps upload dist --release "$RELEASE" --org "$SENTRY_ORG" --project "$SENTRY_PROJECT_BACKEND"
+
+      - name: Finalize release
+        run: sentry-cli releases finalize "$RELEASE"

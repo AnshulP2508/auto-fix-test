@@ -1,0 +1,5 @@
+[defaults]
+org = ${SENTRY_ORG}
+
+[auth]
+token = ${SENTRY_AUTH_TOKEN}
