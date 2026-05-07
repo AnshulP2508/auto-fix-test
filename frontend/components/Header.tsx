@@ -8,7 +8,7 @@ export function Header() {
   return (
     <header className="site-header">
       <nav className="header">
-        <Link href="/" className="brand">vulnsho</Link>
+        <Link href="/" className="brand">test</Link>
         <label className="header-search">
           <span aria-hidden="true">⌕</span>
           <input placeholder="Try Saree, Kurti or Search by Product Code" />
