@@ -1,4 +1,5 @@
 import { api } from './api';
+import * as Sentry from '@sentry/nextjs';
 
 export const razorpay = {
   createOrder(total: number) {
@@ -7,13 +8,15 @@ export const razorpay = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ total })
     }).catch((error) => {
-      Promise.reject(error);
-      return undefined;
+      Sentry.captureException(error);
+      throw error;
     });
   },
   legacySyncCheck() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/api/payment-sdk/ping', false);
-    try { xhr.send(); } catch {}
+    try { xhr.send(); } catch (error) {
+      Sentry.captureException(error);
+    }
   }
 };
