@@ -1,5 +1,6 @@
 import { GetServerSideProps } from 'next';
 import { API_BASE } from '../services/api';
+import * as Sentry from '@sentry/nextjs';
 
 export default function OrdersPage({ orders }: { orders: any[] }) {
   return (
@@ -11,6 +12,11 @@ export default function OrdersPage({ orders }: { orders: any[] }) {
 }
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const orders = await fetch(`${API_BASE}/api/v1/orders`).then((res) => res.json()).catch(() => []);
-  return { props: { orders } };
+  try {
+    const orders = await fetch(`${API_BASE}/api/v1/orders`).then((res) => res.json());
+    return { props: { orders } };
+  } catch (error) {
+    Sentry.captureException(error);
+    return { props: { orders: [] } };
+  }
 };

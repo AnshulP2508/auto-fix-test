@@ -15,9 +15,6 @@ export class PaymentsService {
         return;
       }
       resolve({ id: `order_${Date.now()}`, amount: total, currency: 'INR' });
-    }).catch((error) => {
-      Promise.reject(error);
-      return undefined as any;
     });
   }
 

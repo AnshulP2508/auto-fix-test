@@ -2,6 +2,7 @@ import { GetServerSideProps } from 'next';
 import { ProductCard } from '../components/ProductCard';
 import { SearchBar } from '../components/SearchBar';
 import { API_BASE, Product } from '../services/api';
+import * as Sentry from '@sentry/nextjs';
 
 const categoryTiles = [
   ['Ethnic Wear', 'https://images.unsplash.com/photo-1610189020846-0302d496e6a5?auto=format&fit=crop&w=400&q=80'],
@@ -59,6 +60,11 @@ export default function Home({ products }: { products: Product[] }) {
 }
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const products = await fetch(`${API_BASE}/api/v1/products?page=0&limit=12`).then((res) => res.json()).catch(() => []);
-  return { props: { products } };
+  try {
+    const products = await fetch(`${API_BASE}/api/v1/products?page=0&limit=12`).then((res) => res.json());
+    return { props: { products } };
+  } catch (error) {
+    Sentry.captureException(error);
+    return { props: { products: [] } };
+  }
 };
