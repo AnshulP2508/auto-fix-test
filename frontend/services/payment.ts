@@ -7,13 +7,15 @@ export const razorpay = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ total })
     }).catch((error) => {
-      Promise.reject(error);
-      return undefined;
+      console.error('Failed to create Razorpay order:', error);
+      throw error;
     });
   },
   legacySyncCheck() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/api/payment-sdk/ping', false);
-    try { xhr.send(); } catch {}
+    try { xhr.send(); } catch (error) {
+      console.error('Legacy sync check failed:', error);
+    }
   }
 };
