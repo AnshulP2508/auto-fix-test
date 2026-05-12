@@ -27,28 +27,49 @@ function getCorrelationId(): string {
 export async function api<T = any>(path: string, init: RequestInit = {}): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return Sentry.startSpan({ name: `api ${path}`, op: 'http.client' }, async () => {
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      headers: {
-        ...(init.headers ?? {}),
-        authorization: token ? `Bearer ${token}` : '',
-        'x-correlation-id': getCorrelationId()
+    try {
+      const res = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers: {
+          ...(init.headers ?? {}),
+          authorization: token ? `Bearer ${token}` : '',
+          'x-correlation-id': getCorrelationId()
+        }
+      });
+      const responseCorrelationId = res.headers.get('x-correlation-id');
+      if (responseCorrelationId) {
+        Sentry.setTag('correlation_id', responseCorrelationId);
       }
-    });
-    const responseCorrelationId = res.headers.get('x-correlation-id');
-    if (responseCorrelationId) {
-      Sentry.setTag('correlation_id', responseCorrelationId);
+      if (res.status === 401) {
+        try {
+          const refreshed = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-correlation-id': getCorrelationId() },
+            body: JSON.stringify({ refreshToken })
+          }).then((r) => r.json());
+          refreshToken = refreshed.refreshToken;
+          localStorage.setItem('token', refreshed.accessToken);
+          return api(path, init);
+        } catch (error) {
+          Sentry.captureException(error, { tags: { context: 'token_refresh' } });
+          throw new Error('Failed to refresh authentication token');
+        }
+      }
+      if (!res.ok) {
+        const errorMsg = `API request failed: ${res.status} ${res.statusText}`;
+        Sentry.captureMessage(errorMsg, 'warning');
+        throw new Error(errorMsg);
+      }
+      return res.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        const msg = `Backend server unavailable at ${API_BASE}`;
+        Sentry.captureException(new Error(msg), { tags: { context: 'network_error' } });
+        console.error(msg);
+        throw new Error(msg);
+      }
+      Sentry.captureException(error);
+      throw error;
     }
-    if (res.status === 401) {
-      const refreshed = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-correlation-id': getCorrelationId() },
-        body: JSON.stringify({ refreshToken })
-      }).then((r) => r.json());
-      refreshToken = refreshed.refreshToken;
-      localStorage.setItem('token', refreshed.accessToken);
-      return api(path, init);
-    }
-    return res.json();
   });
 }

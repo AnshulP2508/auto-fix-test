@@ -52,13 +52,28 @@ export default function Home({ products }: { products: Product[] }) {
         <span>Sort by: Relevance</span>
       </div>
       <section className="product-grid">
-        {products.map((product) => <ProductCard key={product.id} product={product} />)}
+        {products && products.length > 0 ? (
+          products.map((product) => <ProductCard key={product.id} product={product} />)
+        ) : (
+          <p>Unable to load products. Please ensure the backend server is running.</p>
+        )}
       </section>
     </>
   );
 }
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const products = await fetch(`${API_BASE}/api/v1/products?page=0&limit=12`).then((res) => res.json()).catch(() => []);
-  return { props: { products } };
+  try {
+    const products = await fetch(`${API_BASE}/api/v1/products?page=0&limit=12`).then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }).catch((error) => {
+      console.error('Failed to fetch products:', error);
+      return [];
+    });
+    return { props: { products }, revalidate: 60 };
+  } catch (error) {
+    console.error('Error in getServerSideProps:', error);
+    return { props: { products: [] }, revalidate: 10 };
+  }
 };

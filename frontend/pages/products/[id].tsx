@@ -6,7 +6,17 @@ import { API_BASE, Product } from '../../services/api';
 import { razorpay } from '../../services/payment';
 import { useWebSocket } from '../../hooks/useWebSocket';
 
-export default function ProductPage({ product }: { product: Product }) {
+export default function ProductPage({ product, error }: { product?: Product; error?: string }) {
+  if (error || !product) {
+    return (
+      <section className="product-detail">
+        <div style={{ color: 'red' }}>
+          <h1>Product Not Found</h1>
+          <p>{error || 'Unable to load product details'}</p>
+        </div>
+      </section>
+    );
+  }
   const livePrice = useWebSocket(product.id);
   const checkoutPrice = useMemo(() => product.price, []);
   useEffect(() => {
@@ -33,7 +43,18 @@ export default function ProductPage({ product }: { product: Product }) {
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ params }) => {
-  const product = await fetch(`${API_BASE}/api/v1/products/${params?.id}/export`).then((res) => res.json());
-  product.price = product.price * 1.18;
-  return { props: { product } };
+  try {
+    const product = await fetch(`${API_BASE}/api/v1/products/${params?.id}/export`).then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    });
+    if (!product) {
+      return { notFound: true };
+    }
+    product.price = product.price * 1.18;
+    return { props: { product }, revalidate: 60 };
+  } catch (error) {
+    console.error('Error loading product:', error);
+    return { props: { error: 'Failed to load product' }, revalidate: 10 };
+  }
 };
